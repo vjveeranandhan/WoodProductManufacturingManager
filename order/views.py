@@ -343,6 +343,18 @@ def add_order_to_process(request):
     try:
         user = request.user
         data = request.data
+        if data.get('order_id'):
+            order = Order.objects.filter(id = data['order_id'], organization_id = user.organization_id, main_manager_id=user.id).first()
+            if order is None:
+                return JsonResponse({'error': 'Order not found'}, status=400)
+            if order.enquiry_status != 'completed':
+                return JsonResponse({'error': 'Carpenter enquiry is not completed'}, status=404)
+            if order.current_process_status != 'initiated' and order.current_process_status != 'completed':
+                return JsonResponse({'error': 'Previous process is not completed'}, status=404)
+            data['main_manager_id'] = order.main_manager_id.id
+            data['organization_id'] = order.organization_id.id
+        else:
+            return JsonResponse({'error': 'Order not found'}, status=400)
         if 'process_id' in data:
             process = Process.objects.filter(id = data['process_id'], organization_id = user.organization_id).first()
             if process is None:
@@ -364,26 +376,13 @@ def add_order_to_process(request):
                 worker_user = CustomUser.objects.filter(id = worker, organization_id= user.organization_id).first()
                 if worker_user is None:
                     return JsonResponse({'error': 'Invalid worker'}, status=400)
-        
-        if not data.get('order_id'):
-            order = Order.objects.filter(id = data['order_id'], organization_id = user.organization_id, main_manager_id=user.id).first()
-            if order is None:
-                return JsonResponse({'error': 'Order not found'}, status=400)
-            if order.enquiry_status != 'completed':
-                return JsonResponse({'error': 'Carpenter enquiry is not completed'}, status=404)
-            if order.current_process_status != 'initiated' and order.current_process_status != 'completed':
-                return JsonResponse({'error': 'Previous process is not completed'}, status=404)
-            data['main_manager_id'] = order.main_manager_id.id
-            data['organization_id'] = order.organization_id.id
-        else:
-            return JsonResponse({'error': 'Order not found'}, status=400)
         if ProcessDetails.objects.filter(order_id = data['order_id'], process_id = data['process_id'], organization_id = user.organization_id).exists():
             return Response({"error": 'Order is already added to the process '}, status=status.HTTP_400_BAD_REQUEST)
         serializer = ProcessDetailsSerializer(data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             order.current_process_status= 'requested'
-            order.current_process = process.id
+            order.current_process = process
             order.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

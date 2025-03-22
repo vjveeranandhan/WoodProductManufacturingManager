@@ -132,11 +132,12 @@ def delete_process_details(request, process_details_id):
 # List process details request by manager
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def list_process_details(request, process_manager_id):
+def list_process_details(request):
     try:
+        user = request.user
         # Filter ProcessDetails based on process_manager_id and process_id
         process_details = ProcessDetails.objects.filter(
-            process_manager_id=process_manager_id
+            process_manager_id=user.id
         ).all()
         
         if not process_details.exists():
@@ -202,8 +203,9 @@ def list_process_details(request, process_manager_id):
 @permission_classes([IsAuthenticated])
 def get_process_details(request, process_details_id):
     try:
+        user = request.user
         process_details = ProcessDetails.objects.filter(
-            id=process_details_id
+            id=process_details_id, process_manager_id = user.id, organization_id = user.organization_id.id
         ).first()
         if process_details is None:
             return Response({"error": "No process details found"}, status=status.HTTP_404_NOT_FOUND)
@@ -327,12 +329,15 @@ def get_process_details(request, process_details_id):
 @permission_classes([IsAuthenticated])
 def accept_process_details(request, order_id):
     try:
+        user = request.user
         current_date = date.today()
-        order = Order.objects.filter(id=order_id).first()
+        order = Order.objects.filter(id=order_id, organization_id = user.organization_id.id).first()
         if not order:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
         process_details = ProcessDetails.objects.filter(
-            order_id=order_id, process_id=order.current_process.id).first()
+            order_id=order_id, process_id=order.current_process.id, process_manager_id = user.id, organization_id = user.organization_id.id).first()
+        if not process_details:
+            return Response ({'error': 'Process details not found'}, status=status.HTTP_404_NOT_FOUND)
         process_details.process_status = 'in_progress'
         process_details.request_accepted_date = current_date
         process_details.save()

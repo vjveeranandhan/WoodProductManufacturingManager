@@ -90,6 +90,11 @@ class ProcessDetails(models.Model):
         null=True,
     )
 
+    requested_date = models.DateField(
+        blank=True,
+        null=True,
+    )
+
     def __str__(self):
         return f"Process Details for Order {self.order_id.id} - Process {self.process_id.id}"
     
@@ -101,6 +106,7 @@ class ProcessDetailsImage(models.Model):
         return f"Image for {self.order.product_name}"
     
 class ProcessMaterials(models.Model):
+    organization_id = models.ForeignKey(Organization, on_delete=models.CASCADE, null=True, blank=True)
     process_details_id = models.ForeignKey(
         ProcessDetails,
         on_delete=models.CASCADE,

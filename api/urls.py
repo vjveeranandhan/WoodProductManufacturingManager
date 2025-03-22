@@ -65,12 +65,12 @@ urlpatterns = [
     path('orders/<int:order_id>/completed/', complete_order, name='complete_order'),
 
     #--------------Manager API's---------------------------------
-    #List Main manager orders by status
-    path('orders/manager/<str:order_status>/', list_manager_orders, name='list_manager_orders'),
-    #View Main manager order
-    path('orders/manager/<int:order_id>/', retrieve_order, name='retrieve_order'),
     #Add order to process
     path('orders/manager/add_to_process/', add_order_to_process, name='add_order_to_process'),
+    #View Main manager order
+    path('orders/manager/<int:order_id>/', retrieve_order, name='retrieve_order'),
+    #List Main manager orders by status
+    path('orders/manager/<str:order_status>/', list_manager_orders, name='list_manager_orders'),
     #Process completion verification list
     path('orders/manager/<int:manager_id>/verification/list/', verification_process_list, name='verification_process_list'),
     #Process completion verification view
@@ -96,7 +96,7 @@ urlpatterns = [
     #--------------Process manager API's--------------------------
 
     #List Process manager Request
-    path('process_details/<int:process_manager_id>/list/', list_process_details, name='process-details-list'),
+    path('process_details/list/', list_process_details, name='process-details-list'),
     #View Process Details Request
     path('process_details/<int:process_details_id>/view/', get_process_details, name='get-process-details'),
     #Accept Process Details Request
