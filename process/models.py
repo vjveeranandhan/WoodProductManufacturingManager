@@ -2,6 +2,8 @@ from django.db import models
 from user_manager.models import CustomUser
 from inventory.models import Material
 from organization.models import Organization
+from datetime import timedelta
+
 # Create your models here.
 class Process(models.Model):
     name = models.CharField(max_length=100)  # English name, must be unique
@@ -18,6 +20,7 @@ class ProcessDetails(models.Model):
         ('requested', 'Requested'),
         ('in_progress', 'In Progress'),
         ('completed', 'Completed'),
+        ('paused', 'Paused'),
         ('verification', 'Verification'),
         ('overdue', 'Overdue'),
     ]
@@ -85,15 +88,25 @@ class ProcessDetails(models.Model):
     )
     over_due = models.BooleanField(default=0)
 
-    request_accepted_date = models.DateField(
-        blank=True,
-        null=True,
+    request_accepted_date = models.DateTimeField(
+    blank=True,
+    null=True,
+    help_text="Date and time when the request accepted"
     )
 
-    requested_date = models.DateField(
-        blank=True,
-        null=True,
+    requested_date = models.DateTimeField(
+    blank=True,
+    null=True,
+    help_text="Date and time when the request was made"
     )
+
+    process_resume_date = models.DateTimeField(
+    blank=True,
+    null=True,
+    help_text="Date and time when the process resume"
+    )
+
+    working_hours = models.DurationField(default=timedelta(0)) 
 
     def __str__(self):
         return f"Process Details for Order {self.order_id.id} - Process {self.process_id.id}"

@@ -12,8 +12,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 from carpenter_work.views import (list_carpenter_requests, carpenter_request_accept, carpenter_request_view,
                                    carpenter_request_respond, carpenter_request_respond, carpenter_request_update)
-from process.views import list_process_details, get_process_details, accept_process_details, delete_process_details, add_to_process_verification
-from process.views import create_process_material, retrieve_process_material, delete_process_material
+from process.views import list_process_details, get_process_details, accept_process_details, delete_process_details, add_to_process_verification, pause_process_details
+from process.views import create_process_material, retrieve_process_material, delete_process_material, resume_process_details
 from organization.views import get_organization, create_organization, update_organization, delete_organization, list_organizations
 
 urlpatterns = [
@@ -72,7 +72,7 @@ urlpatterns = [
     #List Main manager orders by status
     path('orders/manager/<str:order_status>/', list_manager_orders, name='list_manager_orders'),
     #Process completion verification list
-    path('orders/manager/<int:manager_id>/verification/list/', verification_process_list, name='verification_process_list'),
+    path('orders/manager/verification/list/', verification_process_list, name='verification_process_list'),
     #Process completion verification view
     path('orders/manager/<int:order_id>/verification/view/', verification_process_view, name='verification_process_view'), 
     #Process verification Accept
@@ -109,7 +109,10 @@ urlpatterns = [
     path('process_materials/create/', create_process_material, name='create_process_material'),
     #Delete material used in process
     path('process_materials/<int:process_material_id>/delete/', delete_process_material, name='delete_process_material'),
-
+    #Pause process
+    path('process_details/<int:order_id>/pause/', pause_process_details, name='pause_process_details'),
+    #Resume process
+    path('process_details/<int:order_id>/resume/', resume_process_details, name='resume_process_details'),
     #Fetch data for order creation
     path('orders/creation-data/', get_order_creation_data, name='get_order_creation_data'),
 

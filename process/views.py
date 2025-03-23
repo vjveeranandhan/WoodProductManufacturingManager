@@ -20,6 +20,10 @@ from django.shortcuts import get_object_or_404
 from inventory.models import Material
 from inventory.MaterialSerializer import MaterialSerializer
 from .tests import user_admin_and_org_check, test_user_has_organization
+from django.utils import timezone
+from zoneinfo import ZoneInfo
+from datetime import timedelta
+
 # GET all processes
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -330,8 +334,10 @@ def get_process_details(request, process_details_id):
 def accept_process_details(request, order_id):
     try:
         user = request.user
-        current_date = date.today()
         order = Order.objects.filter(id=order_id, organization_id = user.organization_id.id).first()
+        current_time = timezone.now()
+        if not current_time:
+            return Response({"error": 'unable to fetch time!'}, status=status.HTTP_400_BAD_REQUEST)
         if not order:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
         process_details = ProcessDetails.objects.filter(
@@ -339,7 +345,7 @@ def accept_process_details(request, order_id):
         if not process_details:
             return Response ({'error': 'Process details not found'}, status=status.HTTP_404_NOT_FOUND)
         process_details.process_status = 'in_progress'
-        process_details.request_accepted_date = current_date
+        process_details.request_accepted_date = current_time
         process_details.save()
         order.current_process_status = 'on_going'
         order.status = 'on_going'
@@ -351,6 +357,81 @@ def accept_process_details(request, order_id):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def pause_process_details(request, order_id):
+    try:
+        user = request.user
+        order = Order.objects.filter(id=order_id, organization_id = user.organization_id.id).first()
+        
+        if not order:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        process_details = ProcessDetails.objects.filter(
+            order_id=order_id, process_id=order.current_process.id, process_manager_id = user.id, organization_id = user.organization_id.id, 
+            process_status = 'in_progress').first()
+        if not process_details:
+            return Response ({'error': 'Process details not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        current_time = timezone.now()
+        if not current_time:
+            return Response({"error": 'unable to fetch time!'}, status=status.HTTP_400_BAD_REQUEST)
+        time_difference = 0
+        if process_details.process_resume_date is None:
+            time_difference = current_time - process_details.request_accepted_date
+        else:
+            time_difference = current_time - process_details.process_resume_date
+        if time_difference == 0:
+            return Response({"message": "No change"}, status=status.HTTP_200_OK)
+
+        total_seconds = time_difference.total_seconds()
+        hours = int(total_seconds // 3600)
+        minutes = int((total_seconds % 3600) // 60)
+
+        print(f"Hours: {hours}, Minutes: {minutes}")
+
+        # Alternative using timedelta components:
+        hours_td = time_difference.days * 24 + time_difference.seconds // 3600
+        minutes_td = (time_difference.seconds % 3600) // 60
+        print(f"Hours (timedelta): {hours_td}, Minutes (timedelta): {minutes_td}")
+
+        print(ProcessDetails.process_resume_date)
+        time_delta_value = timedelta(hours=hours, minutes=minutes)
+        process_details.working_hours += time_delta_value  # Add the duration\
+        process_details.process_status = 'paused'
+        process_details.save()
+        order.current_process_status = 'paused'
+        order.save()
+
+        serializer = ProcessDetailsSerializer(process_details)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def resume_process_details(request, order_id):
+    try:
+        user = request.user
+        order = Order.objects.filter(id=order_id, organization_id = user.organization_id.id).first()
+        if not order:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        process_details = ProcessDetails.objects.filter(
+            order_id=order_id, process_id=order.current_process.id, process_manager_id = user.id, organization_id = user.organization_id.id,
+            process_status = 'paused').first()
+        if not process_details:
+            return Response ({'error': 'Process details not found'}, status=status.HTTP_404_NOT_FOUND)
+        current_time = timezone.now()
+        if not current_time:
+            return Response({"error": 'unable to fetch time!'}, status=status.HTTP_400_BAD_REQUEST)
+        process_details.process_resume_date = current_time
+        process_details.process_status = 'in_progress'
+        process_details.save()
+        order.current_process_status = 'on_going'
+        order.save()
+        serializer = ProcessDetailsSerializer(process_details)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 #------------------Process Materials API's-----------------------------------
 
@@ -360,6 +441,7 @@ def accept_process_details(request, order_id):
 def create_process_material(request):
     try:
         data = request.data
+        user = request.user
         material = get_object_or_404(Material, id=data['material_id'])
         if material.quantity < data['quantity']:
             return Response({"error": "Not enough material stock available."}, status=status.HTTP_400_BAD_REQUEST)
@@ -368,7 +450,9 @@ def create_process_material(request):
         data['material_price'] = material.price
         data['total_price'] = material.price * data['quantity']
 
-        process_details = ProcessDetails.objects.get(id=data['process_details_id'])
+        process_details = ProcessDetails.objects.get(id=data['process_details_id'], process_manager_id = user.id, organization_id=user.organization_id.id)
+        if not process_details:
+            return Response({"error": "Process details not found!"}, status=status.HTTP_400_BAD_REQUEST)
         process_details_material_price = process_details.material_price
         process_details_material_price+= data['total_price']
         process_details.material_price = process_details_material_price
@@ -386,6 +470,7 @@ def create_process_material(request):
         order_ongoing_expense += data['total_price']
         order.ongoing_expense = order_ongoing_expense
         order.save()
+        data['organization_id'] = user.organization_id.id
         serializer = ProcessMaterialsSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
@@ -433,22 +518,78 @@ def delete_process_material(request, process_material_id):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 # Delete a ProcessMaterial
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def add_to_process_verification(request, process_details_id):
     try:
+        user = request.user
         reference_images = request.FILES.getlist('image')
-        process_details = ProcessDetails.objects.filter(id=process_details_id).first()
+
+        # Fetch ProcessDetails with additional validation
+        process_details = ProcessDetails.objects.filter(
+            id=process_details_id, 
+            process_manager_id=user.id, 
+            organization_id=user.organization_id.id
+        ).first()
+
+        if not process_details:
+            return Response({"error": "Process details not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Fetch Order with validation
+        order = Order.objects.filter(
+            id=process_details.order_id.id, 
+            organization_id=user.organization_id.id
+        ).first()
+
+        if not order:
+            return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+        current_time = timezone.now()
+        if not current_time:
+            return Response({"error": 'unable to fetch time!'}, status=status.HTTP_400_BAD_REQUEST)
+        time_difference = 0
+        if process_details.process_resume_date is None:
+            time_difference = current_time - process_details.request_accepted_date
+        else:
+            time_difference = current_time - process_details.process_resume_date
+        if time_difference == 0:
+            return Response({"message": "No change!"}, status=status.HTTP_200_OK)
+
+        if process_details.process_status == 'in_progress':
+            total_seconds = time_difference.total_seconds()
+            hours = int(total_seconds // 3600)
+            minutes = int((total_seconds % 3600) // 60)
+
+            print(f"Hours: {hours}, Minutes: {minutes}")
+
+            # Alternative using timedelta components:
+            hours_td = time_difference.days * 24 + time_difference.seconds // 3600
+            minutes_td = (time_difference.seconds % 3600) // 60
+            print(f"Hours (timedelta): {hours_td}, Minutes (timedelta): {minutes_td}")
+
+            print(ProcessDetails.process_resume_date)
+            time_delta_value = timedelta(hours=hours, minutes=minutes)
+            process_details.working_hours += time_delta_value  # Add the duration\
         process_details.process_status = 'verification'
-        order = Order.objects.filter(id=process_details.order_id.id).first()
-        order.current_process_status ='verification'
+        order.current_process_status = 'verification'
         order.save()
+
+        # Save images
         for image in reference_images:
-                ProcessDetailsImage.objects.create(
-                    image=image,
-                    process_details_id=process_details
-                )
+            ProcessDetailsImage.objects.create(
+                image=image,
+                process_details=process_details  # Correct field name
+            )
+
         process_details.save()
-        return Response({"message": "Verification send successfully"}, status=status.HTTP_204_NO_CONTENT)
+
+        return Response({"message": "Verification sent successfully"}, status=status.HTTP_200_OK)
+
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

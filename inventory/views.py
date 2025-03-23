@@ -20,7 +20,7 @@ def get_all_categories(request):
         check_result, check_message = user_admin_and_org_check(user, request, message="get categories")
         if not check_result:
             return Response({"message": check_message["message"]}, status=status.HTTP_403_FORBIDDEN)
-        categories = InventoryCategory.objects.filter(organization_id=user.organization_id.id).all()
+        categories = InventoryCategory.objects.filter(organization_id=user.organization_id.id).order_by('-id').all()
         serializer = InventoryCategorySerializer(categories, many=True)
         return Response(serializer.data)
     except:
@@ -109,7 +109,7 @@ def get_all_materials(request):
         check_result, check_message = user_admin_and_org_check(user, request, message="get materials")
         if not check_result:
             return Response({"message": check_message["message"]}, status=status.HTTP_403_FORBIDDEN)
-        materials = Material.objects.filter(organization_id=user.organization_id.id).all()
+        materials = Material.objects.filter(organization_id=user.organization_id.id).order_by("id").order_by('-id').all()
         serializer = MaterialSerializer(materials, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     except:

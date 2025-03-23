@@ -32,6 +32,7 @@ class Order(models.Model):
         ('initiated', 'Initiated'),
         ('requested', 'Requested'),
         ('on_going', 'On going'),
+        ('paused', 'Paused'),
         ('verification', 'Verification'),
         ('completed', 'Completed'),
         ('over_due', 'Over due'),
@@ -69,18 +70,9 @@ class Order(models.Model):
     address = models.TextField(blank=True, null=True)
     main_manager_id = models.ForeignKey(CustomUser, on_delete=models.PROTECT, related_name='managed_products')
     carpenter_id = models.ForeignKey(CustomUser, on_delete=models.PROTECT, related_name='carpenter_products')
-    # carpenter_workers_id = models.ManyToManyField(CustomUser, related_name='carpenter_worker_products', blank=True)
-    # carpenter_work_hr = models.FloatField(blank=True, null=True, help_text="Work hours required")
-    # carpenter_work_cost = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    # carpenter_work_completion_date = models.DateField(blank=True, null=True)
     completed_processes = models.ManyToManyField(Process, blank=True, related_name='process')
     enquiry_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='initiated', help_text="Status of the enquiry")
     current_process_status = models.CharField(max_length=20, choices=PROCESS_STATUS, default='initiated', help_text="Status of current process")
-    
-    # material_length = models.FloatField(help_text="Length in feet", blank=True, null=True)
-    # material_height = models.FloatField(help_text="Height in feel", blank=True, null=True)
-    # material_width = models.FloatField(help_text="Width in feet",  blank=True, null=True)
-
     material_cost = models.FloatField(default=0.0)
     ongoing_expense = models.FloatField(default=0.0)
     over_due = models.BooleanField(default=False)

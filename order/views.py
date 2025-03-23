@@ -27,6 +27,8 @@ from process.ProcessSerializer import ProcessSerializer
 from user_manager.serializer import UserSerializer
 from .tests import user_admin_and_org_check
 from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+from datetime import datetime
 
 # Create a new order
 @api_view(['POST'])
@@ -85,7 +87,7 @@ def list_orders(request, order_status):
         check_result, check_message = user_admin_and_org_check(user, request, message="get orders!")
         if not check_result:
             return Response({"message": check_message["message"]}, status=status.HTTP_403_FORBIDDEN)
-        orders = Order.objects.filter(status= order_status, organization_id=user.organization_id).all()
+        orders = Order.objects.filter(status= order_status, organization_id=user.organization_id).order_by('-id').all()
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     except Exception as e:
@@ -343,6 +345,12 @@ def add_order_to_process(request):
     try:
         user = request.user
         data = request.data
+        current_time = timezone.now()
+        expected_completion_date_str = data['expected_completion_date']
+        expected_completion_date = datetime.strptime(expected_completion_date_str, '%Y-%m-%d').date() #extract date portion.
+        current_date = timezone.now().date() #extract date portion.
+        if expected_completion_date < current_date:
+            return JsonResponse({'error': 'Invalid date'}, status=400)
         if data.get('order_id'):
             order = Order.objects.filter(id = data['order_id'], organization_id = user.organization_id, main_manager_id=user.id).first()
             if order is None:
@@ -378,6 +386,10 @@ def add_order_to_process(request):
                     return JsonResponse({'error': 'Invalid worker'}, status=400)
         if ProcessDetails.objects.filter(order_id = data['order_id'], process_id = data['process_id'], organization_id = user.organization_id).exists():
             return Response({"error": 'Order is already added to the process '}, status=status.HTTP_400_BAD_REQUEST)
+        if not current_time:
+            return Response({"error": 'unable to fetch time!'}, status=status.HTTP_400_BAD_REQUEST)
+        _data = request.data
+        _data['requested_date'] = current_time
         serializer = ProcessDetailsSerializer(data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -403,19 +415,19 @@ def get_order_creation_data(request):
     user = request.user
     try:
         # Get all active categories
-        categories = InventoryCategory.objects.filter(organization_id=user.organization_id.id).all()
+        categories = InventoryCategory.objects.filter(organization_id=user.organization_id.id).order_by("id") .all()
         categories_data = InventoryCategorySerializer(categories, many=True).data
 
         # Get all active materials
-        materials = Material.objects.filter(organization_id=user.organization_id.id).all()
+        materials = Material.objects.filter(organization_id=user.organization_id.id).order_by("id") .all()
         materials_data = MaterialSerializer(materials, many=True).data
 
         # Get all active processes
-        processes = Process.objects.filter(organization_id=user.organization_id.id).all()
+        processes = Process.objects.filter(organization_id=user.organization_id.id).order_by("id") .all()
         processes_data = ProcessSerializer(processes, many=True).data
 
         # Get all managers
-        users = CustomUser.objects.filter(organization_id=user.organization_id.id).all()
+        users = CustomUser.objects.filter(organization_id=user.organization_id.id).order_by("id") .all()
         serializer = CustomUserSerializer(users, many=True)
         user_data = serializer.data
 
@@ -438,9 +450,10 @@ def get_order_creation_data(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def verification_process_list(request, manager_id):
+def verification_process_list(request):
     try:
-        orders = Order.objects.filter(main_manager_id=manager_id, current_process_status='verification').all()
+        user=request.user
+        orders = Order.objects.filter(main_manager_id=user.id, current_process_status='verification', organization_id=user.organization_id.id).order_by('-id').all()
         if not orders.exists():
             return Response(
                 {"message": "No orders found for the given managers."}, 
@@ -528,34 +541,23 @@ def verification_process_view(request, order_id):
 @permission_classes([IsAuthenticated])
 def verification_process_view_accept(request, process_details_id):
     try:
-        process_details_obj = ProcessDetails.objects.filter(id= process_details_id).first()
+        user = request.user
+        process_details_obj = ProcessDetails.objects.filter(id= process_details_id, organization_id=user.organization_id.id,process_status='verification').first()
         if not process_details_obj:
             return Response(
                 {"message": "Process Details not found."}, 
                 status=status.HTTP_200_OK
             )
-        if process_details_obj.process_status != 'verification':
-            return Response(
-                {"message": "Process Details not available for verification"}, 
-                status=status.HTTP_200_OK
-            )
-        order_obj = Order.objects.filter(id=process_details_obj.order_id.id).first()
+        order_obj = Order.objects.filter(id=process_details_obj.order_id.id, main_manager_id=user.id ,organization_id=user.organization_id.id).first()
         if not order_obj:
             return Response(
                 {"message": "Order not found."}, 
                 status=status.HTTP_200_OK
             )
         completion_date = date.today()
-        started_date = process_details_obj.request_accepted_date
-        hrs = 8
-        days = 1
-        total_working_hrs = 8
-        if started_date == completion_date:
-            total_working_hrs = 8
-        else:
-            days = (completion_date - started_date).days
-            total_working_hrs = days * hrs
-        
+        total_seconds = process_details_obj.working_hours.total_seconds()
+        total_working_hrs = round(total_seconds / 3600)
+        print("total_working_hrs ", total_working_hrs)
         work_expense = 0
         for workers in process_details_obj.process_workers_id.all():
             worker_obj = CustomUser.objects.filter(id=workers.id).first()
