@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 import os
+import firebase_admin
+from firebase_admin import credentials, messaging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -52,7 +54,8 @@ INSTALLED_APPS = [
     'process',
     'order',
     'carpenter_work',
-    'organization'
+    'organization',
+    'notification'
 ]
 
 MIDDLEWARE = [
@@ -158,3 +161,9 @@ SIMPLE_JWT = {
 # Media settings
 MEDIA_URL = '/media/'  # URL prefix for media files (used in templates)
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # Directory where uploaded media files are stored
+
+# Notification settings
+FIREBASE_CREDENTIALS = "blackstonetech-firebase-adminsdk-fbsvc-e0ce65e268.json"
+
+cred = credentials.Certificate(FIREBASE_CREDENTIALS)
+firebase_admin.initialize_app(cred)
