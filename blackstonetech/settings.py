@@ -160,15 +160,17 @@ SIMPLE_JWT = {
 
 # Media settings
 # Load environment variables from .env file
+import os
 from dotenv import load_dotenv
-load_dotenv()
 
-# Get Firebase credentials path from .env file
+load_dotenv()  # Load .env variables
+
+print("FIREBASE_CREDENTIALS:", os.getenv("FIREBASE_CREDENTIALS"))  # Debugging
+
 FIREBASE_CREDENTIALS = os.getenv("FIREBASE_CREDENTIALS")
 
-# Initialize Firebase Admin SDK
-if FIREBASE_CREDENTIALS:
-    cred = credentials.Certificate(FIREBASE_CREDENTIALS)
-    firebase_admin.initialize_app(cred)
-else:
-    raise ValueError("Firebase credentials not found in environment variables")
+if not FIREBASE_CREDENTIALS:
+    raise ValueError("FIREBASE_CREDENTIALS not found. Check your .env file.")
+
+cred = credentials.Certificate(FIREBASE_CREDENTIALS)
+firebase_admin.initialize_app(cred)
