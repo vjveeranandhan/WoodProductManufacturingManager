@@ -159,11 +159,16 @@ SIMPLE_JWT = {
 }
 
 # Media settings
-MEDIA_URL = '/media/'  # URL prefix for media files (used in templates)
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # Directory where uploaded media files are stored
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
 
-# Notification settings
-FIREBASE_CREDENTIALS = "blackstonetech-firebase-adminsdk-fbsvc-e0ce65e268.json"
+# Get Firebase credentials path from .env file
+FIREBASE_CREDENTIALS = os.getenv("FIREBASE_CREDENTIALS")
 
-cred = credentials.Certificate(FIREBASE_CREDENTIALS)
-firebase_admin.initialize_app(cred)
+# Initialize Firebase Admin SDK
+if FIREBASE_CREDENTIALS:
+    cred = credentials.Certificate(FIREBASE_CREDENTIALS)
+    firebase_admin.initialize_app(cred)
+else:
+    raise ValueError("Firebase credentials not found in environment variables")
