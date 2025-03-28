@@ -17,9 +17,6 @@ from .tests import test_user_is_admin, test_user_has_organization, user_admin_an
 def get_all_categories(request):
     try:
         user = request.user
-        check_result, check_message = user_admin_and_org_check(user, request, message="get categories")
-        if not check_result:
-            return Response({"message": check_message["message"]}, status=status.HTTP_403_FORBIDDEN)
         categories = InventoryCategory.objects.filter(organization_id=user.organization_id.id).order_by('-id').all()
         serializer = InventoryCategorySerializer(categories, many=True)
         return Response(serializer.data)
@@ -49,9 +46,6 @@ def create_category(request):
 def get_category(request, pk):
     try:
         user = request.user
-        check_result, check_message = user_admin_and_org_check(user, request, message="get category")
-        if not check_result:
-            return Response({"message": check_message["message"]}, status=status.HTTP_403_FORBIDDEN)
         category = InventoryCategory.objects.filter(pk=pk, organization_id=user.organization_id.id).first()
         if category:
             serializer = InventoryCategorySerializer(category)
@@ -106,9 +100,6 @@ def delete_category(request, pk):
 def get_all_materials(request):
     try:
         user = request.user
-        check_result, check_message = user_admin_and_org_check(user, request, message="get materials")
-        if not check_result:
-            return Response({"message": check_message["message"]}, status=status.HTTP_403_FORBIDDEN)
         materials = Material.objects.filter(organization_id=user.organization_id.id).order_by("id").order_by('-id').all()
         serializer = MaterialSerializer(materials, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -153,9 +144,6 @@ def create_material(request):
 def get_material(request, pk):
     try:
         user = request.user
-        check_result, check_message = user_admin_and_org_check(user, request, message="get materials")
-        if not check_result:
-            return Response({"message": check_message["message"]}, status=status.HTTP_403_FORBIDDEN)
         material = Material.objects.filter(pk=pk, organization_id=user.organization_id.id).first()
         serializer = MaterialSerializer(material)
         return Response(serializer.data)
