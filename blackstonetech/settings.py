@@ -13,8 +13,8 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 import os
-import firebase_admin
-from firebase_admin import credentials, messaging
+# import firebase_admin
+# from firebase_admin import credentials, messaging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'django_extensions',
+    'django_celery_beat',
     'user_manager',
     'inventory',
     'process',
@@ -174,3 +175,7 @@ SIMPLE_JWT = {
 
 # cred = credentials.Certificate(FIREBASE_CREDENTIALS)
 # firebase_admin.initialize_app(cred)
+
+#Celery settings.py
+
+CELERY_BROKER_URL = 'amqp://localhost'  # or use Redis: 'redis://localhost:6379/0'

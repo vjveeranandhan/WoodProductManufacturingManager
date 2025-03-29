@@ -4,6 +4,7 @@ from inventory.models import Material
 from process.models import Process
 from django.core.validators import MinValueValidator, MaxValueValidator
 from organization.models import Organization
+from django.utils import timezone
 # Use CustomUser model for foreign key relationships
 
 class Order(models.Model):
@@ -79,6 +80,10 @@ class Order(models.Model):
 
     def __str__(self):
         return self.product_name
+    
+    def mark_expired_if_needed(self):
+        self.over_due = timezone.now().date() > self.estimated_delivery_date
+        self.save()
 
 class OrderImage(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='images')
